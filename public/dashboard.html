@@ -124,9 +124,88 @@
         .create-playlist-btn:hover {
             background: #1976d2;
         }
-        .create-playlist-btn:disabled {
+        .remove-btn {
+            background: #f44336;
+            color: white;
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 15px;
+            font-size: 12px;
+            cursor: pointer;
+            margin: 0.25rem;
+            transition: background 0.3s;
+        }
+        .remove-btn:hover {
+            background: #d32f2f;
+        }
+        .remove-btn:disabled {
             background: #ccc;
             cursor: not-allowed;
+        }
+        .bulk-actions {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+        .bulk-actions h4 {
+            margin: 0 0 1rem 0;
+            color: #856404;
+        }
+        .action-buttons {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        .library-status {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+            margin-left: 0.5rem;
+        }
+        .library-status.in-library {
+            background: #e8f5e8;
+            color: #2e7d2e;
+        }
+        .library-status.not-in-library {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .add-album-btn {
+            background: #2196f3;
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border: none;
+            border-radius: 12px;
+            font-size: 11px;
+            cursor: pointer;
+            margin-left: 0.5rem;
+            transition: background 0.3s;
+        }
+        .add-album-btn:hover {
+            background: #1976d2;
+        }
+        .remove-btn-only {
+            background: #ff9800;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: background 0.3s;
+        }
+        .remove-btn-only:hover {
+            background: #f57c00;
+        }
+        .checkbox-container {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin: 0.5rem 0;
         }
         .track-list {
             max-height: 300px;
@@ -223,6 +302,17 @@
             </div>
         </div>
         
+        <div style="margin: 2rem 0; padding: 1rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #17a2b8;">
+            <h4 style="margin: 0 0 0.5rem 0; color: #17a2b8;">⚡ Cache Management</h4>
+            <p style="margin: 0 0 1rem 0; font-size: 0.9rem; color: #666;">
+                Your liked songs are cached for 24 hours to speed up analysis. 
+                Clear cache if you've recently made changes to your liked songs.
+            </p>
+            <button id="clearCacheBtn" class="scan-btn" style="background: #17a2b8; font-size: 0.9rem; padding: 0.5rem 1rem;">
+                🗑️ Clear Cache & Refresh Data
+            </button>
+        </div>
+        
         <div id="loading" class="loading">
             <p id="loadingText">🔍 Analyzing your library... This may take a while for large libraries.</p>
             <div style="margin-top: 1rem;">
@@ -260,6 +350,38 @@
         document.getElementById('scanBtn').addEventListener('click', () => runAnalysis('duplicates'));
         document.getElementById('albumBtn').addEventListener('click', () => runAnalysis('albums'));
         document.getElementById('yearBtn').addEventListener('click', () => runAnalysis('years'));
+        document.getElementById('clearCacheBtn').addEventListener('click', clearCache);
+
+        async function clearCache() {
+            const button = document.getElementById('clearCacheBtn');
+            const originalText = button.textContent;
+            
+            button.disabled = true;
+            button.textContent = '🔄 Clearing cache...';
+            
+            try {
+                const response = await fetch('/api/clear-cache', {
+                    method: 'POST'
+                });
+                
+                if (response.ok) {
+                    button.textContent = '✅ Cache cleared!';
+                    setTimeout(() => {
+                        button.textContent = originalText;
+                        button.disabled = false;
+                    }, 2000);
+                } else {
+                    throw new Error('Failed to clear cache');
+                }
+            } catch (error) {
+                console.error('Error clearing cache:', error);
+                button.textContent = '❌ Error clearing cache';
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.disabled = false;
+                }, 2000);
+            }
+        }
 
         async function runAnalysis(type) {
             const scanBtn = document.getElementById('scanBtn');
@@ -403,24 +525,43 @@
             if (duplicates.length === 0) {
                 duplicatesList.innerHTML = '<p>🎉 No duplicates found! Your Liked Songs library is clean.</p>';
             } else {
-                duplicatesList.innerHTML = duplicates.map(group => 
-                    `<div class="duplicate-group">
-                        <h4>Duplicate Group (${group.count} copies)</h4>
-                        ${group.tracks.map(item => 
-                            `<div class="track-item">
-                                <div class="track-info">
-                                    <img src="${item.track.album.images[2]?.url || ''}" alt="Album art" class="track-image">
-                                    <div class="track-details">
-                                        <h5>${item.track.name}</h5>
-                                        <p>by ${item.track.artists.map(a => a.name).join(', ')}</p>
-                                        <p>Album: ${item.track.album.name}</p>
-                                        <p>Added: ${new Date(item.addedAt).toLocaleDateString()}</p>
+                duplicatesList.innerHTML = `
+                    <div class="bulk-actions">
+                        <h4>🚨 Duplicate Cleanup Actions</h4>
+                        <p>Found ${totalDuplicateGroups} groups with ${totalDuplicateTracks} total duplicate tracks.</p>
+                        <div class="action-buttons">
+                            <button class="remove-btn" onclick="removeDuplicates()">
+                                🗑️ Remove All Duplicates (Keep Most Recent)
+                            </button>
+                        </div>
+                        <p style="font-size: 12px; color: #666; margin-top: 0.5rem;">
+                            This will keep the most recently added copy of each song and remove older duplicates.
+                        </p>
+                    </div>
+                    ${duplicates.map(group => {
+                        // Sort tracks by date added (newest first) to show correct keep/remove indicators
+                        const sortedTracks = group.tracks.sort((a, b) => new Date(b.addedAt) - new Date(a.addedAt));
+                        
+                        return `<div class="duplicate-group">
+                            <h4>Duplicate Group (${group.count} copies) - "${sortedTracks[0].track.name}"</h4>
+                            <p style="font-size: 14px; color: #666; margin: 0.5rem 0;">
+                                Album: ${sortedTracks[0].track.album.name} by ${sortedTracks[0].track.artists.map(a => a.name).join(', ')}
+                            </p>
+                            ${sortedTracks.map((item, index) => 
+                                `<div class="track-item" style="border-left-color: ${index === 0 ? '#4caf50' : '#f44336'}">
+                                    <div class="track-info">
+                                        <img src="${item.track.album.images[2]?.url || ''}" alt="Album art" class="track-image">
+                                        <div class="track-details">
+                                            <h5>${item.track.name} ${index === 0 ? '✅ (KEEP - Most Recent)' : '❌ (REMOVE - Older)'}</h5>
+                                            <p>by ${item.track.artists.map(a => a.name).join(', ')}</p>
+                                            <p>Album: ${item.track.album.name}</p>
+                                            <p>Added: ${new Date(item.addedAt).toLocaleDateString()}</p>
+                                        </div>
                                     </div>
-                                </div>
-                            </div>`
-                        ).join('')}
-                    </div>`
-                ).join('');
+                                </div>`
+                            ).join('')}
+                        </div>`;
+                    }).join('')}`;
             }
         }
 
@@ -434,30 +575,65 @@
             if (albums.length === 0) {
                 albumsList.innerHTML = '<p>🎉 No suspicious albums found! Your Liked Songs don\'t have entire albums.</p>';
             } else {
-                albumsList.innerHTML = albums.map(albumData => 
-                    `<div class="album-group">
-                        <h4>
-                            ${albumData.percentage}% of album liked 
-                            <span class="percentage-badge">${albumData.likedCount}/${albumData.totalTracks} tracks</span>
-                        </h4>
-                        <div class="album-header">
-                            <img src="${albumData.album.images[1]?.url || ''}" alt="Album art" class="album-image">
-                            <div class="album-details">
-                                <h5>${albumData.album.name}</h5>
-                                <p>by ${albumData.album.artists.map(a => a.name).join(', ')}</p>
-                                <p>Released: ${albumData.album.release_date}</p>
-                                <p>First liked: ${new Date(albumData.tracks[0].addedAt).toLocaleDateString()}</p>
+                albumsList.innerHTML = `
+                    <div class="bulk-actions">
+                        <h4>💿 Album Cleanup Actions</h4>
+                        <p>Found ${albums.length} albums where most tracks are in your Liked Songs (excluding singles).</p>
+                        <div class="action-buttons">
+                            <button class="remove-btn" onclick="removeAllAlbums(true)">
+                                🗑️ Remove ALL Albums (Add to Library First)
+                            </button>
+                            <button class="remove-btn" onclick="removeAllAlbums(false)">
+                                🗑️ Remove ALL Albums (No Library Addition)
+                            </button>
+                            <button class="remove-btn" onclick="removeSelectedAlbums()">
+                                🎯 Remove Selected Albums
+                            </button>
+                        </div>
+                        <p style="font-size: 12px; color: #666; margin-top: 0.5rem;">
+                            <strong>Smart behavior:</strong> Albums not in your library will be added first, then individual tracks removed from Liked Songs.
+                        </p>
+                    </div>
+                    ${albums.map(albumData => 
+                        `<div class="album-group">
+                            <h4>
+                                <div class="checkbox-container">
+                                    <input type="checkbox" id="album_${albumData.album.id}" value="${albumData.album.id}" class="album-checkbox">
+                                    ${albumData.percentage}% of album liked 
+                                    <span class="percentage-badge">${albumData.likedCount}/${albumData.totalTracks} tracks</span>
+                                    <span class="library-status ${albumData.isInLibrary ? 'in-library' : 'not-in-library'}">
+                                        ${albumData.isInLibrary ? '📚 In Library' : '📂 Not in Library'}
+                                    </span>
+                                    ${!albumData.isInLibrary ? `<button class="add-album-btn" onclick="addAlbumToLibrary('${albumData.album.id}', '${albumData.album.name.replace(/'/g, "\\'")}')">➕ Add to Library</button>` : ''}
+                                </div>
+                                <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                                    <button class="remove-btn" onclick="removeAlbum('${albumData.album.id}', '${albumData.album.name.replace(/'/g, "\\'")}', ${!albumData.isInLibrary})">
+                                        🗑️ ${albumData.isInLibrary ? 'Remove from Liked Songs' : 'Add to Library & Remove from Liked Songs'}
+                                    </button>
+                                    <button class="remove-btn-only" onclick="removeAlbum('${albumData.album.id}', '${albumData.album.name.replace(/'/g, "\\'")}', false)">
+                                        🚫 Remove from Liked Songs Only
+                                    </button>
+                                </div>
+                            </h4>
+                            <div class="album-header">
+                                <img src="${albumData.album.images[1]?.url || ''}" alt="Album art" class="album-image">
+                                <div class="album-details">
+                                    <h5>${albumData.album.name}</h5>
+                                    <p>by ${albumData.album.artists.map(a => a.name).join(', ')}</p>
+                                    <p>Released: ${albumData.album.release_date}</p>
+                                    <p>First liked: ${new Date(albumData.tracks[0].addedAt).toLocaleDateString()}</p>
+                                    <p><strong>Library Status:</strong> ${albumData.isInLibrary ? 'Album is saved in your library' : 'Only individual tracks are liked'}</p>
+                                </div>
                             </div>
-                        </div>
-                        <div class="track-list">
-                            ${albumData.tracks.map(item => 
-                                `<div class="track-mini">
-                                    <strong>${item.track.name}</strong> - Added ${new Date(item.addedAt).toLocaleDateString()}
-                                </div>`
-                            ).join('')}
-                        </div>
-                    </div>`
-                ).join('');
+                            <div class="track-list">
+                                ${albumData.tracks.map(item => 
+                                    `<div class="track-mini">
+                                        <strong>${item.track.name}</strong> - Added ${new Date(item.addedAt).toLocaleDateString()}
+                                    </div>`
+                                ).join('')}
+                            </div>
+                        </div>`
+                    ).join('')}`;
             }
         }
 
@@ -521,6 +697,208 @@
             } catch (error) {
                 console.error('Error creating playlist:', error);
                 alert('Failed to create playlist: ' + error.message);
+                button.disabled = false;
+                button.textContent = originalText;
+            }
+        }
+
+        async function removeDuplicates() {
+            if (!confirm('Are you sure you want to remove all duplicate tracks? This will keep only the most recently added copy of each song. This action cannot be undone.')) {
+                return;
+            }
+            
+            const button = event.target;
+            const originalText = button.textContent;
+            
+            button.disabled = true;
+            button.textContent = 'Removing duplicates...';
+            
+            try {
+                const response = await fetch('/api/remove-duplicates', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.results && data.results.success) {
+                    alert(`✅ Successfully removed ${data.results.removedCount} duplicate tracks!\n\n${data.results.message}`);
+                    
+                    // Refresh the duplicates analysis
+                    runAnalysis('duplicates');
+                } else {
+                    throw new Error(data.results.errors?.join('\n') || 'Unknown error');
+                }
+                
+            } catch (error) {
+                console.error('Error removing duplicates:', error);
+                alert('Failed to remove duplicates: ' + error.message);
+                button.disabled = false;
+                button.textContent = originalText;
+            }
+        }
+
+        async function removeAlbum(albumId, albumName, shouldAddToLibrary = false) {
+            if (!confirm(`Are you sure you want to remove all tracks from "${albumName}" from your Liked Songs? ${shouldAddToLibrary ? 'The album will be added to your library first.' : ''} This action cannot be undone.`)) {
+                return;
+            }
+            
+            const button = event.target;
+            const originalText = button.textContent;
+            
+            button.disabled = true;
+            button.textContent = shouldAddToLibrary ? 'Adding to library & removing...' : 'Removing...';
+            
+            try {
+                const response = await fetch('/api/remove-albums', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        albumIds: [albumId], 
+                        removeAll: false,
+                        addToLibrary: shouldAddToLibrary
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.results && data.results.success) {
+                    const detail = data.results.details[0];
+                    let message = `✅ Successfully removed ${detail.tracksRemoved} tracks from "${detail.albumName}"!`;
+                    if (shouldAddToLibrary) {
+                        message = `✅ Successfully added album to library and removed ${detail.tracksRemoved} tracks from "${detail.albumName}"!`;
+                    }
+                    alert(message);
+                    
+                    // Refresh the album analysis
+                    runAnalysis('albums');
+                } else {
+                    throw new Error(data.results.errors?.join('\n') || 'Unknown error');
+                }
+                
+            } catch (error) {
+                console.error('Error removing album:', error);
+                alert('Failed to remove album: ' + error.message);
+                button.disabled = false;
+                button.textContent = originalText;
+            }
+        }
+
+        async function addAlbumToLibrary(albumId, albumName) {
+            try {
+                const response = await fetch('/api/add-album-to-library', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ albumId })
+                });
+                
+                if (response.ok) {
+                    alert(`✅ Successfully added "${albumName}" to your library!`);
+                    // Refresh the albums analysis to update the library status
+                    runAnalysis('albums');
+                } else {
+                    const error = await response.text();
+                    alert(`❌ Error: ${error}`);
+                }
+            } catch (error) {
+                console.error('Error adding album to library:', error);
+                alert('❌ Error adding album to library');
+            }
+        }
+
+        async function removeAllAlbums() {
+            if (!confirm('Are you sure you want to remove ALL flagged albums from your Liked Songs? This will remove hundreds or thousands of tracks. This action cannot be undone.')) {
+                return;
+            }
+            
+            const button = event.target;
+            const originalText = button.textContent;
+            
+            button.disabled = true;
+            button.textContent = 'Removing all albums...';
+            
+            try {
+                const response = await fetch('/api/remove-albums', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        albumIds: [], 
+                        removeAll: true 
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.results && data.results.success) {
+                    alert(`✅ Successfully removed ${data.results.removedTracks} tracks from ${data.results.removedAlbums} albums!\n\n${data.results.message}`);
+                    
+                    // Refresh the album analysis
+                    runAnalysis('albums');
+                } else {
+                    throw new Error(data.results.errors?.join('\n') || 'Unknown error');
+                }
+                
+            } catch (error) {
+                console.error('Error removing all albums:', error);
+                alert('Failed to remove albums: ' + error.message);
+                button.disabled = false;
+                button.textContent = originalText;
+            }
+        }
+
+        async function removeSelectedAlbums() {
+            const selectedCheckboxes = document.querySelectorAll('.album-checkbox:checked');
+            const selectedAlbumIds = Array.from(selectedCheckboxes).map(cb => cb.value);
+            
+            if (selectedAlbumIds.length === 0) {
+                alert('Please select at least one album to remove.');
+                return;
+            }
+            
+            if (!confirm(`Are you sure you want to remove ${selectedAlbumIds.length} selected albums from your Liked Songs? This action cannot be undone.`)) {
+                return;
+            }
+            
+            const button = event.target;
+            const originalText = button.textContent;
+            
+            button.disabled = true;
+            button.textContent = 'Removing selected albums...';
+            
+            try {
+                const response = await fetch('/api/remove-albums', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        albumIds: selectedAlbumIds, 
+                        removeAll: false 
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.results && data.results.success) {
+                    alert(`✅ Successfully removed ${data.results.removedTracks} tracks from ${data.results.removedAlbums} albums!\n\n${data.results.message}`);
+                    
+                    // Refresh the album analysis
+                    runAnalysis('albums');
+                } else {
+                    throw new Error(data.results.errors?.join('\n') || 'Unknown error');
+                }
+                
+            } catch (error) {
+                console.error('Error removing selected albums:', error);
+                alert('Failed to remove albums: ' + error.message);
                 button.disabled = false;
                 button.textContent = originalText;
             }
