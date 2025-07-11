@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Spotify Library Curation</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .header {
+            background: white;
+            padding: 1rem 2rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+        }
+        .header h1 {
+            margin: 0;
+            color: #1DB954;
+        }
+        .scan-section {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+        .scan-btn {
+            background: #1DB954;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        .scan-btn:hover {
+            background: #1ed760;
+        }
+        .scan-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .loading {
+            display: none;
+            margin: 1rem 0;
+        }
+        .results {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            display: none;
+        }
+        .album-group {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            margin: 1rem 0;
+            padding: 1rem;
+            background: #f9f9f9;
+        }
+        .album-group h4 {
+            margin: 0 0 1rem 0;
+            color: #e91e63;
+        }
+        .album-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        .album-image {
+            width: 80px;
+            height: 80px;
+            border-radius: 4px;
+        }
+        .album-details h5 {
+            margin: 0;
+            color: #333;
+        }
+        .album-details p {
+            margin: 0.25rem 0 0 0;
+            color: #666;
+            font-size: 14px;
+        }
+        .percentage-badge {
+            background: #e91e63;
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .year-group {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            margin: 1rem 0;
+            padding: 1rem;
+            background: #f9f9f9;
+        }
+        .year-group h4 {
+            margin: 0 0 1rem 0;
+            color: #2196f3;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .create-playlist-btn {
+            background: #2196f3;
+            color: white;
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 15px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        .create-playlist-btn:hover {
+            background: #1976d2;
+        }
+        .create-playlist-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .track-list {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #eee;
+            border-radius: 4px;
+            padding: 0.5rem;
+        }
+        .track-mini {
+            padding: 0.5rem;
+            border-bottom: 1px solid #eee;
+            font-size: 14px;
+        }
+        .track-mini:last-child {
+            border-bottom: none;
+        }
+        .track-item {
+            background: white;
+            padding: 1rem;
+            margin: 0.5rem 0;
+            border-radius: 5px;
+            border-left: 4px solid #1DB954;
+        }
+        .track-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        .track-image {
+            width: 50px;
+            height: 50px;
+            border-radius: 4px;
+        }
+        .track-details h5 {
+            margin: 0;
+            color: #333;
+        }
+        .track-details p {
+            margin: 0.25rem 0 0 0;
+            color: #666;
+            font-size: 14px;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .stat-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #1DB954;
+        }
+        .stat-label {
+            color: #666;
+            margin-top: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎵 Spotify Library Dashboard</h1>
+        <p>Find and manage duplicates in your Liked Songs</p>
+    </div>
+
+    <div class="scan-section">
+        <h2>Library Analysis</h2>
+        <p>Choose what analysis you'd like to run on your Liked Songs:</p>
+        
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; margin: 2rem 0;">
+            <div style="border: 1px solid #ddd; padding: 1.5rem; border-radius: 8px;">
+                <h3>🔍 Duplicate Detection</h3>
+                <p>Find duplicate tracks in your library</p>
+                <button id="scanBtn" class="scan-btn">Scan for Duplicates</button>
+            </div>
+            
+            <div style="border: 1px solid #ddd; padding: 1.5rem; border-radius: 8px;">
+                <h3>💿 Album Analysis</h3>
+                <p>Find albums where most/all tracks are liked</p>
+                <button id="albumBtn" class="scan-btn">Analyze Albums</button>
+            </div>
+            
+            <div style="border: 1px solid #ddd; padding: 1.5rem; border-radius: 8px;">
+                <h3>📅 Year Analysis</h3>
+                <p>Organize by year songs were added</p>
+                <button id="yearBtn" class="scan-btn">Analyze by Year</button>
+            </div>
+        </div>
+        
+        <div id="loading" class="loading">
+            <p id="loadingText">🔍 Analyzing your library... This may take a while for large libraries.</p>
+            <div style="margin-top: 1rem;">
+                <div style="background: #f0f0f0; border-radius: 10px; height: 20px; overflow: hidden;">
+                    <div id="progressBar" style="background: #1DB954; height: 100%; width: 0%; transition: width 0.3s;"></div>
+                </div>
+                <p id="progressText" style="margin: 0.5rem 0 0 0; font-size: 14px; color: #666;"></p>
+            </div>
+        </div>
+    </div>
+
+    <div id="stats" class="stats" style="display: none;">
+        <div class="stat-card">
+            <div id="totalTracks" class="stat-number">-</div>
+            <div class="stat-label">Total Liked Songs</div>
+        </div>
+        <div class="stat-card">
+            <div id="duplicateGroups" class="stat-number">-</div>
+            <div class="stat-label">Groups Found</div>
+        </div>
+        <div class="stat-card">
+            <div id="duplicateTracks" class="stat-number">-</div>
+            <div class="stat-label">Items Found</div>
+        </div>
+    </div>
+
+    <div id="results" class="results">
+        <h2 id="resultsTitle">Analysis Results</h2>
+        <div id="duplicatesList"></div>
+        <div id="albumsList"></div>
+        <div id="yearsList"></div>
+    </div>
+
+    <script>
+        document.getElementById('scanBtn').addEventListener('click', () => runAnalysis('duplicates'));
+        document.getElementById('albumBtn').addEventListener('click', () => runAnalysis('albums'));
+        document.getElementById('yearBtn').addEventListener('click', () => runAnalysis('years'));
+
+        async function runAnalysis(type) {
+            const scanBtn = document.getElementById('scanBtn');
+            const albumBtn = document.getElementById('albumBtn');
+            const yearBtn = document.getElementById('yearBtn');
+            const loading = document.getElementById('loading');
+            const results = document.getElementById('results');
+            const stats = document.getElementById('stats');
+            const loadingText = document.getElementById('loadingText');
+            const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+            
+            // Disable all buttons
+            [scanBtn, albumBtn, yearBtn].forEach(btn => {
+                btn.disabled = true;
+                btn.textContent = 'Analyzing...';
+            });
+            
+            loading.style.display = 'block';
+            results.style.display = 'none';
+            stats.style.display = 'none';
+            progressBar.style.width = '0%';
+            progressText.textContent = '';
+            
+            // Set loading text based on analysis type
+            const loadingMessages = {
+                duplicates: '🔍 Scanning for duplicate tracks...',
+                albums: '💿 Analyzing album patterns...',
+                years: '📅 Organizing by years...'
+            };
+            loadingText.textContent = loadingMessages[type];
+            
+            try {
+                let endpoint, data;
+                
+                switch(type) {
+                    case 'duplicates':
+                        endpoint = '/api/duplicates';
+                        break;
+                    case 'albums':
+                        endpoint = '/api/album-analysis';
+                        break;
+                    case 'years':
+                        endpoint = '/api/year-analysis';
+                        break;
+                }
+                
+                // Simulate progress for user feedback
+                progressBar.style.width = '20%';
+                progressText.textContent = 'Fetching your Liked Songs...';
+                
+                const response = await fetch(endpoint);
+                
+                progressBar.style.width = '80%';
+                progressText.textContent = 'Processing data...';
+                
+                data = await response.json();
+                
+                progressBar.style.width = '100%';
+                progressText.textContent = 'Complete!';
+                
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                displayResults(type, data);
+                
+            } catch (error) {
+                console.error('Error:', error);
+                
+                // Show more helpful error messages
+                let errorMessage = 'Failed to run analysis. Please try again.';
+                
+                if (error.message.includes('Network timeout')) {
+                    errorMessage = 'Network timeout. Please check your internet connection and try again.';
+                } else if (error.message.includes('rate limit')) {
+                    errorMessage = 'API rate limit exceeded. Please wait a few minutes and try again.';
+                } else if (error.message.includes('Authentication')) {
+                    errorMessage = 'Authentication expired. Please refresh the page and log in again.';
+                } else if (error.message) {
+                    errorMessage = error.message;
+                }
+                
+                alert('Error: ' + errorMessage);
+                
+                // Reset progress bar on error
+                progressBar.style.width = '0%';
+                progressText.textContent = '';
+                
+            } finally {
+                // Re-enable buttons
+                scanBtn.disabled = false;
+                scanBtn.textContent = 'Scan for Duplicates';
+                albumBtn.disabled = false;
+                albumBtn.textContent = 'Analyze Albums';
+                yearBtn.disabled = false;
+                yearBtn.textContent = 'Analyze by Year';
+                loading.style.display = 'none';
+            }
+        }
+
+        function displayResults(type, data) {
+            const stats = document.getElementById('stats');
+            const results = document.getElementById('results');
+            const resultsTitle = document.getElementById('resultsTitle');
+            
+            // Clear previous results
+            document.getElementById('duplicatesList').innerHTML = '';
+            document.getElementById('albumsList').innerHTML = '';
+            document.getElementById('yearsList').innerHTML = '';
+            
+            stats.style.display = 'grid';
+            results.style.display = 'block';
+            
+            switch(type) {
+                case 'duplicates':
+                    resultsTitle.textContent = 'Duplicate Results';
+                    displayDuplicates(data.duplicates);
+                    break;
+                case 'albums':
+                    resultsTitle.textContent = 'Album Analysis Results';
+                    displayAlbums(data.albumAnalysis);
+                    break;
+                case 'years':
+                    resultsTitle.textContent = 'Year Analysis Results';
+                    displayYears(data.yearAnalysis);
+                    break;
+            }
+        }
+
+        function displayDuplicates(duplicates) {
+            const duplicatesList = document.getElementById('duplicatesList');
+            
+            // Update stats
+            const totalDuplicateGroups = duplicates.length;
+            const totalDuplicateTracks = duplicates.reduce((sum, group) => sum + group.count, 0);
+            
+            document.getElementById('duplicateGroups').textContent = totalDuplicateGroups;
+            document.getElementById('duplicateTracks').textContent = totalDuplicateTracks;
+            
+            if (duplicates.length === 0) {
+                duplicatesList.innerHTML = '<p>🎉 No duplicates found! Your Liked Songs library is clean.</p>';
+            } else {
+                duplicatesList.innerHTML = duplicates.map(group => 
+                    `<div class="duplicate-group">
+                        <h4>Duplicate Group (${group.count} copies)</h4>
+                        ${group.tracks.map(item => 
+                            `<div class="track-item">
+                                <div class="track-info">
+                                    <img src="${item.track.album.images[2]?.url || ''}" alt="Album art" class="track-image">
+                                    <div class="track-details">
+                                        <h5>${item.track.name}</h5>
+                                        <p>by ${item.track.artists.map(a => a.name).join(', ')}</p>
+                                        <p>Album: ${item.track.album.name}</p>
+                                        <p>Added: ${new Date(item.addedAt).toLocaleDateString()}</p>
+                                    </div>
+                                </div>
+                            </div>`
+                        ).join('')}
+                    </div>`
+                ).join('');
+            }
+        }
+
+        function displayAlbums(albums) {
+            const albumsList = document.getElementById('albumsList');
+            
+            // Update stats
+            document.getElementById('duplicateGroups').textContent = albums.length;
+            document.getElementById('duplicateTracks').textContent = albums.reduce((sum, album) => sum + album.likedCount, 0);
+            
+            if (albums.length === 0) {
+                albumsList.innerHTML = '<p>🎉 No suspicious albums found! Your Liked Songs don\'t have entire albums.</p>';
+            } else {
+                albumsList.innerHTML = albums.map(albumData => 
+                    `<div class="album-group">
+                        <h4>
+                            ${albumData.percentage}% of album liked 
+                            <span class="percentage-badge">${albumData.likedCount}/${albumData.totalTracks} tracks</span>
+                        </h4>
+                        <div class="album-header">
+                            <img src="${albumData.album.images[1]?.url || ''}" alt="Album art" class="album-image">
+                            <div class="album-details">
+                                <h5>${albumData.album.name}</h5>
+                                <p>by ${albumData.album.artists.map(a => a.name).join(', ')}</p>
+                                <p>Released: ${albumData.album.release_date}</p>
+                                <p>First liked: ${new Date(albumData.tracks[0].addedAt).toLocaleDateString()}</p>
+                            </div>
+                        </div>
+                        <div class="track-list">
+                            ${albumData.tracks.map(item => 
+                                `<div class="track-mini">
+                                    <strong>${item.track.name}</strong> - Added ${new Date(item.addedAt).toLocaleDateString()}
+                                </div>`
+                            ).join('')}
+                        </div>
+                    </div>`
+                ).join('');
+            }
+        }
+
+        function displayYears(years) {
+            const yearsList = document.getElementById('yearsList');
+            
+            // Update stats  
+            document.getElementById('duplicateGroups').textContent = years.length;
+            document.getElementById('duplicateTracks').textContent = years.reduce((sum, year) => sum + year.count, 0);
+            
+            if (years.length === 0) {
+                yearsList.innerHTML = '<p>No songs found in your Liked Songs.</p>';
+            } else {
+                yearsList.innerHTML = years.map(yearData => 
+                    `<div class="year-group">
+                        <h4>
+                            ${yearData.year} (${yearData.count} songs)
+                            <button class="create-playlist-btn" onclick="createYearPlaylist(${yearData.year})">
+                                Create Playlist
+                            </button>
+                        </h4>
+                        <div class="track-list">
+                            ${yearData.tracks.slice(0, 10).map(item => 
+                                `<div class="track-mini">
+                                    <strong>${item.track.name}</strong> by ${item.track.artists.map(a => a.name).join(', ')} - ${new Date(item.addedAt).toLocaleDateString()}
+                                </div>`
+                            ).join('')}
+                            ${yearData.tracks.length > 10 ? `<div class="track-mini"><em>... and ${yearData.tracks.length - 10} more tracks</em></div>` : ''}
+                        </div>
+                    </div>`
+                ).join('');
+            }
+        }
+
+        async function createYearPlaylist(year) {
+            const button = event.target;
+            const originalText = button.textContent;
+            
+            button.disabled = true;
+            button.textContent = 'Creating...';
+            
+            try {
+                const response = await fetch('/api/create-year-playlists', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ years: [year] })
+                });
+                
+                const data = await response.json();
+                
+                if (data.results && data.results[0].success) {
+                    button.textContent = '✅ Created!';
+                    button.style.background = '#4caf50';
+                    alert(`Playlist "${data.results[0].playlistName}" created successfully with ${data.results[0].trackCount} tracks!`);
+                } else {
+                    throw new Error(data.results[0].error || 'Unknown error');
+                }
+                
+            } catch (error) {
+                console.error('Error creating playlist:', error);
+                alert('Failed to create playlist: ' + error.message);
+                button.disabled = false;
+                button.textContent = originalText;
+            }
+        }
+    </script>
+</body>
+</html>
