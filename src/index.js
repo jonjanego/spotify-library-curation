@@ -244,24 +244,52 @@ app.post('/api/add-album-to-library', async (req, res) => {
 
     console.log(`Adding album to library: ${albumId}`);
     
-    // Use the spotify-web-api-node method with proper error handling
-    const result = await spotifyApi.addToMySavedAlbums([albumId]);
-    console.log(`Successfully added album ${albumId} to library`, result);
-    
+    await addAlbumToLibrary(albumId);
     res.json({ success: true });
     
   } catch (error) {
     console.error('Error adding album to library:', error);
-    
-    // Provide more detailed error information
-    if (error.body) {
-      console.error('Spotify API error body:', error.body);
-      res.status(error.statusCode || 500).send(error.body.error?.message || error.message);
-    } else {
-      res.status(500).send(error.message);
-    }
+    res.status(500).send(error.message);
   }
 });
+
+// Helper function to add album to library with fallback methods
+async function addAlbumToLibrary(albumId, albumName = 'Unknown Album') {
+  try {
+    // Method 1: Try the spotify-web-api-node wrapper
+    await spotifyApi.addToMySavedAlbums([albumId]);
+    console.log(`Successfully added album "${albumName}" to library using wrapper`);
+    return true;
+  } catch (wrapperError) {
+    console.log(`Wrapper method failed for "${albumName}", trying direct API call:`, wrapperError.message);
+    
+    // Method 2: Direct API call with proper headers and body
+    try {
+      const response = await fetch('https://api.spotify.com/v1/me/albums', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${spotifyApi.getAccessToken()}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          ids: [albumId]
+        })
+      });
+      
+      if (response.ok) {
+        console.log(`Successfully added album "${albumName}" to library using direct API`);
+        return true;
+      } else {
+        const errorText = await response.text();
+        console.error(`Direct API call failed for "${albumName}":`, response.status, errorText);
+        throw new Error(`API Error ${response.status}: ${errorText}`);
+      }
+    } catch (fetchError) {
+      console.error(`Both methods failed for "${albumName}":`, fetchError);
+      throw fetchError;
+    }
+  }
+}
 
 async function findDuplicatesInLikedSongs() {
   console.log('Finding duplicates in liked songs...');
@@ -399,7 +427,7 @@ async function analyzeAlbumsInLikedSongs() {
     // Filter criteria:
     // 1. More than 1 track (ignore single tracks)
     // 2. >70% of tracks are liked, OR >5 tracks from same album with >50%
-    if (totalTracks > 1 && (percentage > 70 || (likedCount > 5 && percentage > 50))) {
+    if (totalTracks > 2 && (percentage > 70 || (likedCount > 5 && percentage > 50))) {
       suspiciousAlbums.push({
         album,
         likedCount,
@@ -792,7 +820,7 @@ async function removeAlbumsFromLiked(albumIds, removeAll = false, addToLibrary =
       if (!albumData.isInLibrary && (addToLibrary || removeAll)) {
         try {
           console.log(`Adding album "${albumData.album.name}" to library before removing individual tracks`);
-          await spotifyApi.addToMySavedAlbums([albumData.album.id]);
+          await addAlbumToLibrary(albumData.album.id, albumData.album.name);
           albumAddedToLibrary = true;
           results.addedToLibrary++;
           

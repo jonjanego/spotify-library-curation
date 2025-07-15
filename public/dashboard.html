@@ -568,6 +568,9 @@
         function displayAlbums(albums) {
             const albumsList = document.getElementById('albumsList');
             
+            // Store all albums for filtering
+            window.allAlbums = albums;
+            
             // Update stats
             document.getElementById('duplicateGroups').textContent = albums.length;
             document.getElementById('duplicateTracks').textContent = albums.reduce((sum, album) => sum + album.likedCount, 0);
@@ -575,65 +578,8 @@
             if (albums.length === 0) {
                 albumsList.innerHTML = '<p>🎉 No suspicious albums found! Your Liked Songs don\'t have entire albums.</p>';
             } else {
-                albumsList.innerHTML = `
-                    <div class="bulk-actions">
-                        <h4>💿 Album Cleanup Actions</h4>
-                        <p>Found ${albums.length} albums where most tracks are in your Liked Songs (excluding singles).</p>
-                        <div class="action-buttons">
-                            <button class="remove-btn" onclick="removeAllAlbums(true)">
-                                🗑️ Remove ALL Albums (Add to Library First)
-                            </button>
-                            <button class="remove-btn" onclick="removeAllAlbums(false)">
-                                🗑️ Remove ALL Albums (No Library Addition)
-                            </button>
-                            <button class="remove-btn" onclick="removeSelectedAlbums()">
-                                🎯 Remove Selected Albums
-                            </button>
-                        </div>
-                        <p style="font-size: 12px; color: #666; margin-top: 0.5rem;">
-                            <strong>Smart behavior:</strong> Albums not in your library will be added first, then individual tracks removed from Liked Songs.
-                        </p>
-                    </div>
-                    ${albums.map(albumData => 
-                        `<div class="album-group">
-                            <h4>
-                                <div class="checkbox-container">
-                                    <input type="checkbox" id="album_${albumData.album.id}" value="${albumData.album.id}" class="album-checkbox">
-                                    ${albumData.percentage}% of album liked 
-                                    <span class="percentage-badge">${albumData.likedCount}/${albumData.totalTracks} tracks</span>
-                                    <span class="library-status ${albumData.isInLibrary ? 'in-library' : 'not-in-library'}">
-                                        ${albumData.isInLibrary ? '📚 In Library' : '📂 Not in Library'}
-                                    </span>
-                                    ${!albumData.isInLibrary ? `<button class="add-album-btn" onclick="addAlbumToLibrary('${albumData.album.id}', '${albumData.album.name.replace(/'/g, "\\'")}')">➕ Add to Library</button>` : ''}
-                                </div>
-                                <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                                    <button class="remove-btn" onclick="removeAlbum('${albumData.album.id}', '${albumData.album.name.replace(/'/g, "\\'")}', ${!albumData.isInLibrary})">
-                                        🗑️ ${albumData.isInLibrary ? 'Remove from Liked Songs' : 'Add to Library & Remove from Liked Songs'}
-                                    </button>
-                                    <button class="remove-btn-only" onclick="removeAlbum('${albumData.album.id}', '${albumData.album.name.replace(/'/g, "\\'")}', false)">
-                                        🚫 Remove from Liked Songs Only
-                                    </button>
-                                </div>
-                            </h4>
-                            <div class="album-header">
-                                <img src="${albumData.album.images[1]?.url || ''}" alt="Album art" class="album-image">
-                                <div class="album-details">
-                                    <h5>${albumData.album.name}</h5>
-                                    <p>by ${albumData.album.artists.map(a => a.name).join(', ')}</p>
-                                    <p>Released: ${albumData.album.release_date}</p>
-                                    <p>First liked: ${new Date(albumData.tracks[0].addedAt).toLocaleDateString()}</p>
-                                    <p><strong>Library Status:</strong> ${albumData.isInLibrary ? 'Album is saved in your library' : 'Only individual tracks are liked'}</p>
-                                </div>
-                            </div>
-                            <div class="track-list">
-                                ${albumData.tracks.map(item => 
-                                    `<div class="track-mini">
-                                        <strong>${item.track.name}</strong> - Added ${new Date(item.addedAt).toLocaleDateString()}
-                                    </div>`
-                                ).join('')}
-                            </div>
-                        </div>`
-                    ).join('')}`;
+                // Use the new filtering display function
+                displayFilteredAlbums(albums);
             }
         }
 
@@ -901,6 +847,368 @@
                 alert('Failed to remove albums: ' + error.message);
                 button.disabled = false;
                 button.textContent = originalText;
+            }
+        }
+
+        async function addSelectedAlbumsToLibraryAndRemove() {
+            const selectedCheckboxes = document.querySelectorAll('.album-checkbox:checked');
+            const selectedAlbumIds = Array.from(selectedCheckboxes).map(cb => cb.value);
+            
+            if (selectedAlbumIds.length === 0) {
+                alert('Please select at least one album to process.');
+                return;
+            }
+            
+            // Get the album data for the selected albums
+            const selectedAlbums = (window.filteredAlbums || window.allAlbums).filter(album => 
+                selectedAlbumIds.includes(album.album.id)
+            );
+            
+            const albumsNotInLibrary = selectedAlbums.filter(album => !album.isInLibrary);
+            
+            let confirmMessage = `Add ${selectedAlbums.length} selected album${selectedAlbums.length > 1 ? 's' : ''} to library and remove tracks from Liked Songs?`;
+            
+            if (albumsNotInLibrary.length > 0) {
+                confirmMessage += `\n\n${albumsNotInLibrary.length} album${albumsNotInLibrary.length > 1 ? 's' : ''} will be added to your library first.`;
+            }
+            
+            confirmMessage += `\n\nThis will remove ${selectedAlbums.reduce((sum, album) => sum + album.likedCount, 0)} tracks from your Liked Songs.`;
+            
+            if (!confirm(confirmMessage)) {
+                return;
+            }
+            
+            const button = event.target;
+            const originalText = button.textContent;
+            
+            button.disabled = true;
+            button.textContent = 'Processing selected albums...';
+            
+            try {
+                const response = await fetch('/api/remove-albums', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        albumIds: selectedAlbumIds, 
+                        removeAll: false,
+                        addToLibrary: true
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.results && data.results.success) {
+                    let successMessage = `✅ Successfully processed ${selectedAlbums.length} album${selectedAlbums.length > 1 ? 's' : ''}!`;
+                    successMessage += `\n\nRemoved ${data.results.removedTracks} tracks from Liked Songs`;
+                    
+                    if (data.results.addedToLibrary > 0) {
+                        successMessage += `\nAdded ${data.results.addedToLibrary} album${data.results.addedToLibrary > 1 ? 's' : ''} to your library`;
+                    }
+                    
+                    alert(successMessage);
+                    runAnalysis('albums');
+                } else {
+                    throw new Error(data.results?.errors?.join('\n') || 'Unknown error');
+                }
+                
+            } catch (error) {
+                console.error('Error processing selected albums:', error);
+                alert('Failed to process albums: ' + error.message);
+                button.disabled = false;
+                button.textContent = originalText;
+            }
+        }
+
+        // Advanced album filtering functions
+        function applyAlbumFilter() {
+            const percentageThreshold = parseInt(document.getElementById('percentageThreshold').value);
+            const libraryStatusFilter = document.querySelector('input[name="libraryFilter"]:checked').value;
+            
+            if (!window.allAlbums) {
+                alert('Please run album analysis first.');
+                return;
+            }
+            
+            if (isNaN(percentageThreshold) || percentageThreshold < 1 || percentageThreshold > 100) {
+                alert('Please enter a valid percentage between 1 and 100.');
+                return;
+            }
+            
+            // Filter albums based on criteria
+            let filteredAlbums = window.allAlbums.filter(album => {
+                // Check percentage threshold
+                if (album.percentage < percentageThreshold) {
+                    return false;
+                }
+                
+                // Check library status
+                if (libraryStatusFilter === 'inLibrary' && !album.isInLibrary) {
+                    return false;
+                }
+                if (libraryStatusFilter === 'notInLibrary' && album.isInLibrary) {
+                    return false;
+                }
+                
+                return true;
+            });
+            
+            // Store filtered results
+            window.filteredAlbums = filteredAlbums;
+            
+            // Update filter status
+            const filterStatus = document.getElementById('filterStatus');
+            const statusText = `Showing ${filteredAlbums.length} of ${window.allAlbums.length} albums`;
+            const thresholdText = percentageThreshold < 100 ? ` (≥${percentageThreshold}% liked)` : '';
+            const libraryText = libraryStatusFilter === 'inLibrary' ? ' (in library)' : 
+                               libraryStatusFilter === 'notInLibrary' ? ' (not in library)' : '';
+            filterStatus.textContent = statusText + thresholdText + libraryText;
+            
+            // Update the display
+            displayFilteredAlbums(filteredAlbums);
+        }
+        
+        function resetAlbumFilter() {
+            document.getElementById('percentageThreshold').value = 100;
+            document.querySelector('input[name="libraryFilter"][value="any"]').checked = true;
+            window.filteredAlbums = null;
+            
+            const filterStatus = document.getElementById('filterStatus');
+            filterStatus.textContent = '';
+            
+            // Redisplay all albums
+            if (window.allAlbums) {
+                displayFilteredAlbums(window.allAlbums);
+            }
+        }
+        
+        function displayFilteredAlbums(albums) {
+            const albumsList = document.getElementById('albumsList');
+            const isFiltered = window.filteredAlbums && window.filteredAlbums.length !== window.allAlbums.length;
+            
+            if (albums.length === 0) {
+                albumsList.innerHTML = generateFilteringUI() + '<p>🎯 No albums match the current filter criteria.</p>';
+                return;
+            }
+            
+            // Count albums by library status for bulk actions
+            const albumsInLibrary = albums.filter(album => album.isInLibrary);
+            const albumsNotInLibrary = albums.filter(album => !album.isInLibrary);
+            
+            albumsList.innerHTML = generateFilteringUI() + `
+                <div class="bulk-actions">
+                    <h4>💿 Album Cleanup Actions ${isFiltered ? '(Filtered Results)' : ''}</h4>
+                    <p>
+                        ${isFiltered ? 'Filtered:' : 'Found'} ${albums.length} albums 
+                        (${albumsInLibrary.length} in library, ${albumsNotInLibrary.length} not in library)
+                    </p>
+                    <div class="action-buttons">
+                        ${albumsNotInLibrary.length > 0 ? `
+                            <button class="scan-btn" style="background: #28a745;" onclick="bulkAddToLibrary()">
+                                📚 Add ${albumsNotInLibrary.length} Album${albumsNotInLibrary.length > 1 ? 's' : ''} to Library
+                            </button>
+                        ` : ''}
+                        <button class="remove-btn" onclick="bulkRemoveFromLiked(true)">
+                            🗑️ Remove ${albums.length} Album${albums.length > 1 ? 's' : ''} (Add to Library First)
+                        </button>
+                        <button class="remove-btn" onclick="bulkRemoveFromLiked(false)">
+                            🗑️ Remove ${albums.length} Album${albums.length > 1 ? 's' : ''} (No Library Addition)
+                        </button>
+                        <button class="remove-btn" onclick="removeSelectedAlbums()">
+                            🎯 Remove Selected Albums
+                        </button>
+                        <button class="scan-btn" style="background: #17a2b8;" onclick="addSelectedAlbumsToLibraryAndRemove()">
+                            📚🗑️ Add to Library & Remove Selected Albums
+                        </button>
+                    </div>
+                    <p style="font-size: 12px; color: #666; margin-top: 0.5rem;">
+                        <strong>Bulk actions work on ${isFiltered ? 'filtered' : 'all'} albums shown below.</strong>
+                    </p>
+                </div>
+                ${albums.map(albumData => 
+                    `<div class="album-group">
+                        <h4>
+                            <div class="checkbox-container">
+                                <input type="checkbox" id="album_${albumData.album.id}" value="${albumData.album.id}" class="album-checkbox">
+                                ${albumData.percentage}% of album liked 
+                                <span class="percentage-badge">${albumData.likedCount}/${albumData.totalTracks} tracks</span>
+                                <span class="library-status ${albumData.isInLibrary ? 'in-library' : 'not-in-library'}">
+                                    ${albumData.isInLibrary ? '📚 In Library' : '📂 Not in Library'}
+                                </span>
+                                ${!albumData.isInLibrary ? `<button class="add-album-btn" onclick="addAlbumToLibrary('${albumData.album.id}', '${albumData.album.name.replace(/'/g, "\\'")}')">➕ Add to Library</button>` : ''}
+                            </div>
+                            <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                                <button class="remove-btn" onclick="removeAlbum('${albumData.album.id}', '${albumData.album.name.replace(/'/g, "\\'")}', ${!albumData.isInLibrary})">
+                                    🗑️ ${albumData.isInLibrary ? 'Remove from Liked Songs' : 'Add to Library & Remove from Liked Songs'}
+                                </button>
+                                <button class="remove-btn-only" onclick="removeAlbum('${albumData.album.id}', '${albumData.album.name.replace(/'/g, "\\'")}', false)">
+                                    🚫 Remove from Liked Songs Only
+                                </button>
+                            </div>
+                        </h4>
+                        <div class="album-header">
+                            <img src="${albumData.album.images[1]?.url || ''}" alt="Album art" class="album-image">
+                            <div class="album-details">
+                                <h5>${albumData.album.name}</h5>
+                                <p>by ${albumData.album.artists.map(a => a.name).join(', ')}</p>
+                                <p>Released: ${albumData.album.release_date}</p>
+                                <p>First liked: ${new Date(albumData.tracks[0].addedAt).toLocaleDateString()}</p>
+                                <p><strong>Library Status:</strong> ${albumData.isInLibrary ? 'Album is saved in your library' : 'Only individual tracks are liked'}</p>
+                            </div>
+                        </div>
+                        <div class="track-list">
+                            ${albumData.tracks.map(item => 
+                                `<div class="track-mini">
+                                    <strong>${item.track.name}</strong> - Added ${new Date(item.addedAt).toLocaleDateString()}
+                                </div>`
+                            ).join('')}
+                        </div>
+                    </div>`
+                ).join('')}
+            `;
+        }
+        
+        function generateFilteringUI() {
+            return `
+                <!-- Advanced Album Filtering -->
+                <div style="background: #f8f9fa; padding: 1.5rem; border-radius: 8px; margin-bottom: 2rem; border-left: 4px solid #17a2b8;">
+                    <h4 style="margin: 0 0 1rem 0; color: #17a2b8;">🎯 Advanced Album Filtering</h4>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+                        <div>
+                            <label for="percentageThreshold" style="display: block; margin-bottom: 0.5rem; font-weight: 500;">
+                                Minimum % of songs liked:
+                            </label>
+                            <input type="number" id="percentageThreshold" min="1" max="100" value="100" 
+                                   style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;"
+                                   placeholder="e.g., 75 for 75% or more">
+                            <small style="color: #666; font-size: 0.8rem;">Albums with at least this percentage of liked tracks</small>
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">
+                                Library status filter:
+                            </label>
+                            <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+                                <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                                    <input type="radio" name="libraryFilter" value="any" checked 
+                                           style="margin: 0;">
+                                    <span>Show All Albums</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                                    <input type="radio" name="libraryFilter" value="notInLibrary" 
+                                           style="margin: 0;">
+                                    <span>📂 Not in Library Only</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                                    <input type="radio" name="libraryFilter" value="inLibrary" 
+                                           style="margin: 0;">
+                                    <span>📚 In Library Only</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+                        <button onclick="applyAlbumFilter()" class="scan-btn" style="background: #17a2b8;">
+                            🔍 Apply Filter
+                        </button>
+                        <button onclick="resetAlbumFilter()" class="scan-btn" style="background: #6c757d;">
+                            🔄 Reset Filter
+                        </button>
+                        <span id="filterStatus" style="color: #666; font-size: 0.9rem;"></span>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Bulk action functions
+        async function bulkAddToLibrary() {
+            const albums = window.filteredAlbums || window.allAlbums;
+            const albumsNotInLibrary = albums.filter(album => !album.isInLibrary);
+            
+            if (albumsNotInLibrary.length === 0) {
+                alert('No albums to add to library.');
+                return;
+            }
+            
+            const confirmMessage = `Add ${albumsNotInLibrary.length} album${albumsNotInLibrary.length > 1 ? 's' : ''} to your library?\n\nAlbums:\n${albumsNotInLibrary.slice(0, 5).map(a => `• ${a.album.name}`).join('\n')}${albumsNotInLibrary.length > 5 ? `\n...and ${albumsNotInLibrary.length - 5} more` : ''}`;
+            
+            if (!confirm(confirmMessage)) {
+                return;
+            }
+            
+            try {
+                for (let albumData of albumsNotInLibrary) {
+                    const response = await fetch('/api/add-album-to-library', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ albumId: albumData.album.id })
+                    });
+                    
+                    if (!response.ok) {
+                        console.error(`Failed to add album ${albumData.album.name}`);
+                    }
+                    
+                    // Rate limiting
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                }
+                
+                alert(`✅ Successfully added ${albumsNotInLibrary.length} album${albumsNotInLibrary.length > 1 ? 's' : ''} to your library!`);
+                // Refresh the analysis to update library status
+                runAnalysis('albums');
+                
+            } catch (error) {
+                console.error('Error adding albums to library:', error);
+                alert('❌ Error adding albums to library');
+            }
+        }
+        
+        async function bulkRemoveFromLiked(addToLibrary) {
+            const albums = window.filteredAlbums || window.allAlbums;
+            
+            if (albums.length === 0) {
+                alert('No albums to remove.');
+                return;
+            }
+            
+            const totalTracks = albums.reduce((sum, album) => sum + album.likedCount, 0);
+            const albumsNotInLibrary = albums.filter(album => !album.isInLibrary);
+            
+            let confirmMessage = `Remove ${totalTracks} tracks from ${albums.length} album${albums.length > 1 ? 's' : ''} from your Liked Songs?`;
+            
+            if (addToLibrary && albumsNotInLibrary.length > 0) {
+                confirmMessage += `\n\n${albumsNotInLibrary.length} album${albumsNotInLibrary.length > 1 ? 's' : ''} will be added to your library first.`;
+            }
+            
+            confirmMessage += `\n\nAlbums:\n${albums.slice(0, 5).map(a => `• ${a.album.name} (${a.likedCount} tracks)`).join('\n')}${albums.length > 5 ? `\n...and ${albums.length - 5} more` : ''}`;
+            
+            if (!confirm(confirmMessage)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/remove-albums', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        albumIds: albums.map(a => a.album.id), 
+                        removeAll: false,
+                        addToLibrary: addToLibrary
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.results && data.results.success) {
+                    alert(`✅ Successfully processed ${albums.length} album${albums.length > 1 ? 's' : ''}!\n\nRemoved ${data.results.removedTracks} tracks${data.results.addedToLibrary ? `\nAdded ${data.results.addedToLibrary} albums to library` : ''}`);
+                    // Refresh the analysis
+                    runAnalysis('albums');
+                } else {
+                    throw new Error(data.results?.errors?.join('\n') || 'Unknown error');
+                }
+                
+            } catch (error) {
+                console.error('Error removing albums:', error);
+                alert('❌ Error removing albums: ' + error.message);
             }
         }
     </script>
