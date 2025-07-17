@@ -2,7 +2,7 @@
 
 I created this tool because I had a problem that is probably common to many people who've been using Spotify for a long time - their "Liked" songs playlist has gotten too big to be useful. In particular, as Spotify has evolved, its approach to album management has changed - at one point, instead of "adding an album to your library", it just added all tracks from it to your liked songs list. After over a decade, my "Liked songs" playlist had over 9000 tracks in it, including duplicates from different releases of albums - it was getting crazy!
 
-So I used Copilot in agent mode (using Claude Sonnet 4) to help put this together. It doesn't do all the work for you - you still need to make your decisions about how you want to manage this playlist - but it really helps with the trudgery of cleaning up a massive playlist.
+So I used Copilot in agent mode (using Claude Sonnet 4) to help put this together. It doesn't do all the work for you - you still need to make your decisions about how you want to manage this playlist - but it really helps with the drudgery of cleaning up a massive playlist.
 
 My "Liked songs" now has a svelte 1600, helping ensure that when I shuffle it, it'll be songs I _actually_ like, rather than songs from albums I wanted to try out once and then forgot about.
 
