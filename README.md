@@ -1,6 +1,6 @@
 # Spotify Library Curation
 
-A comprehensive tool to help manage and curate your Spotify music library with advanced duplicate detection, album analysis, and smart cleanup features.
+A tool to help manage and curate your Spotify music library with advanced duplicate detection, album analysis, and smart cleanup features.
 
 ## ✨ Features
 
@@ -101,7 +101,7 @@ A comprehensive tool to help manage and curate your Spotify music library with a
 
 #### Step 1: Run Analysis
 - Click "Analyze Albums" to find albums with multiple liked tracks
-- Excludes single-track releases automatically
+- Excludes two-track releases automatically (to avoid singles and small EPs)
 
 #### Step 2: Use Advanced Filtering
 - **Set percentage threshold**: e.g., 100% for complete albums, 75% for mostly complete
@@ -167,16 +167,6 @@ Choose from several bulk actions:
 3. **Smart workflow**: Filter → Review → Add to Library & Remove from Liked Songs
 4. **Regular maintenance**: Run monthly to keep your library organized
 5. **Cache refresh**: Clear cache after major library changes
-
-## 🔧 API Endpoints
-
-- `GET /api/duplicates` - Find duplicate tracks
-- `GET /api/album-analysis` - Analyze albums in liked songs
-- `GET /api/year-analysis` - Analyze tracks by year added
-- `POST /api/remove-albums` - Remove album tracks from liked songs
-- `POST /api/add-album-to-library` - Add albums to library
-- `POST /api/clear-cache` - Clear cached data
-- `POST /api/create-year-playlists` - Create year-based playlists
 
 ## 🤝 Contributing
 
