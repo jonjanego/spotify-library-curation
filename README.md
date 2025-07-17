@@ -61,7 +61,7 @@ A tool to help manage and curate your Spotify music library with advanced duplic
 3. Create a Spotify App:
    - Go to [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
    - Create a new app
-   - Add `http://localhost:3000/callback` to the redirect URIs
+   - Add `http://127.0.0.1:3000/callback` to the redirect URIs
    - Note: You'll need the following scopes:
      - `user-library-read` - Read your saved albums and tracks
      - `user-library-modify` - Add/remove albums from your library
