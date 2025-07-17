@@ -1,12 +1,15 @@
 # Spotify Library Curation
 
-A tool to help manage and curate your Spotify music library with advanced duplicate detection, album analysis, and smart cleanup features.
+I created this tool because I had a problem that is probably common to many people who've been using Spotify for a long time - their "Liked" songs playlist has gotten too big to be useful. In particular, as Spotify has evolved, its approach to album management has changed - at one point, instead of "adding an album to your library", it just added all tracks from it to your liked songs list. After over a decade, my "Liked songs" playlist had over 9000 tracks in it, including duplicates from different releases of albums - it was getting crazy!
+
+So I used Copilot in agent mode (using Claude Sonnet 4) to help put this together. It doesn't do all the work for you - you still need to make your decisions about how you want to manage this playlist - but it really helps with the trudgery of cleaning up a massive playlist.
+
+My "Liked songs" now has a svelte 1600, helping ensure that when I shuffle it, it'll be songs I _actually_ like, rather than songs from albums I wanted to try out once and then forgot about.
 
 ## ✨ Features
 
 ### 🔍 **Duplicate Detection**
 - Find duplicate tracks in your Liked Songs with smart matching
-- Detect variations (live versions, remasters, compilations)
 - Remove duplicates while keeping the most recently added version
 - Bulk cleanup with safety confirmations
 
@@ -15,7 +18,6 @@ A tool to help manage and curate your Spotify music library with advanced duplic
 - **Smart Library Integration**: Distinguishes between albums in your library vs. individual liked tracks
 - **Filtering System**: Filter by percentage of tracks liked (e.g., 75%+ complete albums)
 - **Library Status Filtering**: Show only albums in library, not in library, or both
-- Excludes single-track albums to focus on meaningful results
 
 ### 📚 **Intelligent Album Management**
 - **Add to Library**: Automatically add albums to your library
@@ -24,7 +26,7 @@ A tool to help manage and curate your Spotify music library with advanced duplic
   - Add selected albums to library only
   - Remove from liked songs with library addition
   - Remove from liked songs without library addition
-  - Add to library then remove from liked songs (recommended workflow)
+  - Add to library then remove from liked songs
 
 ### 📅 **Year-based Organization**
 - Analyze tracks by when they were added to Liked Songs
